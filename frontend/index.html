@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Traffic Flow Prediction</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0d1117;
+      --surface:  #161b22;
+      --card:     #1c2230;
+      --border:   #30363d;
+      --accent:   #58a6ff;
+      --accent2:  #3fb950;
+      --warn:     #f78166;
+      --text:     #e6edf3;
+      --muted:    #8b949e;
+      --radius:   14px;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px 60px;
+    }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    header h1 {
+      font-size: clamp(1.6rem, 4vw, 2.4rem);
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), #a371f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    header p {
+      color: var(--muted);
+      margin-top: 8px;
+      font-size: .95rem;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px 36px;
+      width: 100%;
+      max-width: 680px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.4);
+    }
+
+    /* ── Grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 18px;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    label {
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    input, select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: .95rem;
+      padding: 10px 12px;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    input:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(88,166,255,.15);
+    }
+    select option { background: var(--surface); }
+
+    /* ── Button ── */
+    .btn {
+      margin-top: 24px;
+      width: 100%;
+      padding: 14px;
+      font-size: 1rem;
+      font-weight: 700;
+      font-family: inherit;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      background: linear-gradient(135deg, #1f6feb, #388bfd);
+      color: #fff;
+      letter-spacing: .04em;
+      transition: opacity .2s, transform .15s;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn:hover  { opacity: .9; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn.loading::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: rgba(255,255,255,.12);
+      animation: shimmer 1s infinite;
+    }
+    @keyframes shimmer {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    /* ── Result Box ── */
+    .result {
+      margin-top: 24px;
+      border-radius: 12px;
+      padding: 22px 24px;
+      text-align: center;
+      display: none;
+      animation: fadeUp .35s ease;
+    }
+    @keyframes fadeUp {
+      from { opacity:0; transform: translateY(12px); }
+      to   { opacity:1; transform: translateY(0); }
+    }
+    .result.success {
+      display: block;
+      background: linear-gradient(135deg, rgba(63,185,80,.12), rgba(88,166,255,.08));
+      border: 1px solid rgba(63,185,80,.35);
+    }
+    .result.error {
+      display: block;
+      background: rgba(247,129,102,.08);
+      border: 1px solid rgba(247,129,102,.35);
+    }
+    .result .label {
+      font-size: .8rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-bottom: 8px;
+    }
+    .result .value {
+      font-size: 3rem;
+      font-weight: 800;
+      color: var(--accent2);
+      line-height: 1;
+    }
+    .result .unit {
+      font-size: .9rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+    .result.error .value {
+      font-size: 1rem;
+      color: var(--warn);
+    }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: 32px;
+      font-size: .78rem;
+      color: var(--muted);
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🚦 Traffic Flow Prediction</h1>
+    <p>Enter conditions below and get an instant AI-powered traffic forecast</p>
+  </header>
+
+  <div class="card">
+    <div class="grid">
+      <div class="field">
+        <label for="hour">Hour (0–23)</label>
+        <input type="number" id="hour" min="0" max="23" value="8"/>
+      </div>
+      <div class="field">
+        <label for="day">Day (1–31)</label>
+        <input type="number" id="day" min="1" max="31" value="15"/>
+      </div>
+      <div class="field">
+        <label for="month">Month (1–12)</label>
+        <input type="number" id="month" min="1" max="12" value="6"/>
+      </div>
+      <div class="field">
+        <label for="weekday">Weekday (0=Mon)</label>
+        <input type="number" id="weekday" min="0" max="6" value="2"/>
+      </div>
+      <div class="field">
+        <label for="temp">Temperature (°C)</label>
+        <input type="number" id="temp" step="0.1" value="25"/>
+      </div>
+      <div class="field">
+        <label for="rain">Rainfall (mm)</label>
+        <input type="number" id="rain" min="0" step="0.1" value="0"/>
+      </div>
+      <div class="field">
+        <label for="snow">Snowfall (mm)</label>
+        <input type="number" id="snow" min="0" step="0.1" value="0"/>
+      </div>
+      <div class="field">
+        <label for="weather">Weather</label>
+        <select id="weather">
+          <option value="Clear">☀️ Clear</option>
+          <option value="Cloudy">🌥️ Cloudy</option>
+          <option value="Rainy">🌧️ Rainy</option>
+          <option value="Snowy">❄️ Snowy</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn" id="predictBtn" onclick="predict()">
+      ⚡ Predict Traffic Volume
+    </button>
+
+    <div class="result" id="result">
+      <div class="label" id="resultLabel">Predicted Traffic Volume</div>
+      <div class="value" id="resultValue">-</div>
+      <div class="unit" id="resultUnit">vehicles / hour</div>
+    </div>
+  </div>
+
+  <footer>
+    API: <a href="http://127.0.0.1:5000/" target="_blank">http://127.0.0.1:5000/</a>
+    &nbsp;·&nbsp; Model: RandomForest · Built with Flask
+  </footer>
+
+  <script>
+    async function predict() {
+      const btn = document.getElementById('predictBtn');
+      const resultEl = document.getElementById('result');
+      const valueEl  = document.getElementById('resultValue');
+      const labelEl  = document.getElementById('resultLabel');
+      const unitEl   = document.getElementById('resultUnit');
+
+      btn.classList.add('loading');
+      btn.disabled = true;
+      resultEl.className = 'result';
+
+      const payload = {
+        hour:    +document.getElementById('hour').value,
+        day:     +document.getElementById('day').value,
+        month:   +document.getElementById('month').value,
+        weekday: +document.getElementById('weekday').value,
+        temp:    +document.getElementById('temp').value,
+        rain:    +document.getElementById('rain').value,
+        snow:    +document.getElementById('snow').value,
+        weather:  document.getElementById('weather').value,
+      };
+
+      try {
+        const res  = await fetch('http://127.0.0.1:5000/predict', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (data.predicted_traffic_volume !== undefined) {
+          labelEl.textContent = 'Predicted Traffic Volume';
+          valueEl.textContent = data.predicted_traffic_volume.toLocaleString();
+          unitEl.textContent  = 'vehicles / hour';
+          resultEl.className  = 'result success';
+        } else {
+          labelEl.textContent = 'Error';
+          valueEl.textContent = data.error || 'Unknown error';
+          unitEl.textContent  = '';
+          resultEl.className  = 'result error';
+        }
+      } catch (e) {
+        labelEl.textContent = 'Connection Error';
+        valueEl.textContent = 'Could not reach API. Is Flask running?';
+        unitEl.textContent  = '';
+        resultEl.className  = 'result error';
+      }
+
+      btn.classList.remove('loading');
+      btn.disabled = false;
+    }
+  </script>
+</body>
+</html>

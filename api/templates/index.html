@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Traffic Intelligence Hub</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #0b0e14;
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --accent: #4f46e5;
+            --accent-glow: rgba(79, 70, 229, 0.4);
+            --green: #10b981;
+            --yellow: #f59e0b;
+            --red: #ef4444;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: 'Outfit', sans-serif; 
+            background: var(--bg); 
+            color: var(--text); 
+            overflow-x: hidden;
+            background-image: radial-gradient(circle at 50% 0%, #1e1b4b 0%, var(--bg) 70%);
+            min-height: 100vh;
+        }
+
+        .navbar {
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(11, 14, 20, 0.8);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .logo { font-size: 1.5rem; font-weight: 700; letter-spacing: -1px; display: flex; align-items: center; gap: 10px; }
+        .logo span { color: var(--accent); }
+
+        .container { max-width: 1400px; margin: 0 auto; padding: 30px; }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 30px;
+        }
+
+        @media (max-width: 1100px) {
+            .main-grid { grid-template-columns: 1fr; }
+        }
+
+        /* Glass Cards */
+        .glass-card {
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+        .glass-card:hover { border-color: var(--accent); }
+
+        h2 { font-size: 1.1rem; color: var(--text-muted); margin-bottom: 20px; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px; }
+
+        /* Search & Autocomplete */
+        .search-container { margin-bottom: 25px; position: relative; z-index: 2000; }
+        .search-input {
+            width: 100%;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--glass-border);
+            padding: 16px 20px;
+            border-radius: 16px;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .search-input:focus { border-color: var(--accent); background: rgba(255,255,255,0.08); box-shadow: 0 0 0 4px var(--accent-glow); }
+        .search-btn {
+            position: absolute;
+            right: 8px;
+            top: 8px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .suggestions {
+            position: absolute;
+            top: 100%; left: 0; right: 0;
+            background: #1c1f26;
+            border: 1px solid var(--glass-border);
+            border-top: none;
+            border-radius: 0 0 16px 16px;
+            max-height: 250px;
+            overflow-y: auto;
+            display: none;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        .suggestion-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+        .suggestion-item:hover { background: var(--accent); color: white; }
+
+        /* Map & Controls */
+        #map { height: 500px; border-radius: 24px; border: 1px solid var(--glass-border); margin-bottom: 30px; z-index: 1; }
+        
+        .map-controls {
+            position: absolute;
+            top: 15px; right: 15px;
+            z-index: 1000;
+            display: flex; gap: 8px;
+        }
+        .theme-btn {
+            background: rgba(28, 31, 38, 0.85);
+            backdrop-filter: blur(5px);
+            border: 1px solid var(--glass-border);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .theme-btn:hover { background: var(--accent); }
+
+        /* Stats & Intelligence */
+        .intelligence-stack { display: flex; flex-direction: column; gap: 20px; }
+        .traffic-value { font-size: 3rem; font-weight: 700; margin: 10px 0; }
+        .badge { display: inline-block; padding: 6px 16px; border-radius: 100px; font-weight: 700; font-size: 0.85rem; margin-bottom: 10px; transition: all 0.3s; }
+        .badge-Red { background: rgba(239, 68, 68, 0.2); color: var(--red); border: 1px solid var(--red); }
+        .badge-Yellow { background: rgba(245, 158, 11, 0.2); color: var(--yellow); border: 1px solid var(--yellow); }
+        .badge-Green { background: rgba(16, 185, 129, 0.2); color: var(--green); border: 1px solid var(--green); }
+
+        .meter-container { margin: 20px 0; }
+        .meter-bar { height: 8px; background: rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden; position: relative; }
+        .meter-fill { height: 100%; background: var(--accent); width: 0%; transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .meter-label { display: flex; justify-content: space-between; font-size: 0.9rem; margin-top: 8px; color: var(--text-muted); }
+
+        .insight-list { list-style: none; margin-top: 15px; }
+        .insight-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 12px; margin-bottom: 8px; font-size: 0.95rem; }
+        .insight-item i { color: var(--accent); }
+
+        .what-if-card { background: linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(0,0,0,0)); }
+        .comparison { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 16px; }
+        .comp-val { text-align: center; }
+        .comp-val span { display: block; font-size: 0.8rem; color: var(--text-muted); }
+        .comp-val strong { font-size: 1.2rem; }
+        .comp-arrow { font-size: 1.5rem; color: var(--accent); }
+
+        .charts-row { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; margin-top: 30px; }
+        @media (max-width: 900px) { .charts-row { grid-template-columns: 1fr; } }
+        canvas { max-height: 300px; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .animate { animation: fadeIn 0.6s ease forwards; }
+        .delay-1 { animation-delay: 0.2s; }
+        .delay-2 { animation-delay: 0.4s; }
+
+        #loader { 
+            position: absolute; inset: 0; background: var(--bg); z-index: 3000; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.5s;
+        }
+        .spinner { width: 40px; height: 40px; border: 4px solid var(--glass-border); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div id="loader">
+    <div class="spinner"></div>
+    <p style="margin-top: 15px; color: var(--text-muted);">Initializing Intelligence Hub...</p>
+</div>
+
+<nav class="navbar">
+    <div class="logo">🚦 <span>Traffic</span>AI Intelligence</div>
+    <div style="font-size: 0.9rem; color: var(--text-muted);">Real-time Big Data Engine v2.0</div>
+</nav>
+
+<div class="container">
+    <div class="main-grid">
+        <div class="left-col">
+            <div class="search-container animate">
+                <input type="text" id="searchInput" class="search-input" placeholder="Search a location (e.g. Anna Nagar)..." autocomplete="off">
+                <button class="search-btn" onclick="searchLocation()">Analyze Area</button>
+                <div id="autocompleteList" class="suggestions"></div>
+            </div>
+            
+            <div style="position: relative;">
+                <div id="map" class="animate delay-1"></div>
+                <div class="map-controls animate delay-2">
+                    <button class="theme-btn" onclick="setMapTheme('dark')">Dark</button>
+                    <button class="theme-btn" onclick="setMapTheme('light')">Light</button>
+                    <button class="theme-btn" onclick="setMapTheme('terrain')">Terrain</button>
+                </div>
+            </div>
+
+            <div class="glass-card animate delay-2">
+                <h2>📊 Predictive Analytics Dashboard</h2>
+                <div class="charts-row">
+                    <div><canvas id="timeChart"></canvas></div>
+                    <div><canvas id="statChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="intelligence-stack">
+            <div id="predictionCard" class="glass-card animate">
+                <h2>🚗 Current Forecast</h2>
+                <div id="resultsContent" style="display: none;">
+                    <div id="levelBadge" class="badge">MODERATE</div>
+                    <div id="resArea" style="font-size: 0.9rem; color: var(--text-muted);">Loading...</div>
+                    <div class="traffic-value"><span id="resVolume">0</span> <small style="font-size: 1rem; font-weight: 400;">v/h</small></div>
+                    <p id="resExplain" style="font-size: 0.95rem; line-height: 1.5; color: var(--text-muted);"></p>
+                    
+                    <div class="meter-container">
+                        <div class="meter-label"><span>Confidence Score</span> <span id="confVal">0%</span></div>
+                        <div class="meter-bar"><div id="confFill" class="meter-fill"></div></div>
+                    </div>
+
+                    <button class="search-btn" style="position: static; width: 100%; margin-top: 10px;" onclick="speakResult()">🔊 Play Audio Insight</button>
+                </div>
+                <div id="startLabel" style="text-align: center; padding: 40px 0;">
+                    <p style="color: var(--text-muted);">Select a point on the map to begin intelligence analysis.</p>
+                </div>
+            </div>
+
+            <div id="xaiCard" class="glass-card animate delay-1" style="display: none;">
+                <h2>🧠 Why this result?</h2>
+                <div id="factorList" class="insight-list"></div>
+                <div id="riskCard" style="margin-top: 15px; padding: 12px; background: rgba(239, 68, 68, 0.1); border-radius: 12px; border: 1px solid rgba(239, 68, 68, 0.2);">
+                    <span style="font-size: 0.8rem; font-weight: 700;">RISK ASSESSMENT:</span>
+                    <p id="riskVal" style="font-size: 1.1rem; font-weight: 600;"></p>
+                </div>
+            </div>
+
+            <div id="whatIfCard" class="glass-card animate delay-2 what-if-card" style="display: none;">
+                <h2>🔁 What-If Simulation</h2>
+                <p style="font-size: 0.85rem; color: var(--text-muted);">Comparison with +2 Hours delay</p>
+                <div class="comparison">
+                    <div class="comp-val"><span>Now</span><strong id="currVolLabel">--</strong></div>
+                    <div class="comp-arrow">→</div>
+                    <div class="comp-val"><span id="futureTimeLabel">--</span><strong id="futureVolLabel">--</strong></div>
+                </div>
+                <div id="savingsMsg" style="margin-top: 15px; text-align: center; font-weight: 600; color: var(--green);"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentLat, currentLon, currentArea = "Selected Location", currentType = "road";
+    let map = L.map('map', { zoomControl: false }).setView([13.0827, 80.2707], 12);
+    let marker = L.marker([13.0827, 80.2707]).addTo(map);
+
+    const themes = {
+        dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+        light: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        terrain: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'
+    };
+    let currentLayer = L.tileLayer(themes.dark, { attribution: '&copy; OpenStreetMap' }).addTo(map);
+
+    function setMapTheme(theme) {
+        map.removeLayer(currentLayer);
+        currentLayer = L.tileLayer(themes[theme], { attribution: '&copy; OpenStreetMap' }).addTo(map);
+    }
+
+    // Autocomplete Logic
+    const searchInput = document.getElementById('searchInput');
+    const autocompleteList = document.getElementById('autocompleteList');
+    const locations = [
+      "Avadi", "Avadi Camp", "Anna Nagar", "Anna Nagar West",
+      "Koyambedu", "Ambattur", "Poonamallee", "Tambaram",
+      "Guindy", "Adyar", "T Nagar", "Velachery", "Chromepet", "Perungudi"
+    ];
+
+    searchInput.addEventListener('input', async (e) => {
+        const q = e.target.value.toLowerCase();
+        if (q.length < 2) { autocompleteList.style.display = 'none'; return; }
+        
+        // --- Part 4: Fix Search Autocomplete (JS Implementation) ---
+        const localMatches = locations.filter(loc => loc.toLowerCase().startsWith(q));
+        
+        try {
+            // Combine local matches with Nominatim for robustness
+            const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=in&addressdetails=1&limit=10`);
+            let data = await resp.json();
+            
+            // Filter and prioritize
+            const allowedTypes = ['suburb', 'neighbourhood', 'residential', 'city', 'town', 'village'];
+            const filtered = data.filter(item => {
+                const isTN = item.display_name.includes("Tamil Nadu") || (item.address && item.address.state === "Tamil Nadu");
+                const type = item.type || item.addresstype;
+                const isValidType = allowedTypes.includes(type);
+                return isTN && isValidType;
+            });
+
+            const results = [];
+            // Add local matches first
+            localMatches.forEach(name => results.push({ display_name: name, lat: null, lon: null, type: 'suburb' }));
+            
+            // Add filtered Nominatim results
+            filtered.forEach(item => {
+                const parts = item.display_name.split(',');
+                const shortName = parts.slice(0, 2).join(',').trim();
+                // Avoid duplicates
+                if (!localMatches.some(m => shortName.includes(m))) {
+                    results.push({ display_name: shortName, lat: item.lat, lon: item.lon, type: item.type || item.addresstype });
+                }
+            });
+
+            const top5 = results.slice(0, 5);
+
+            if (top5.length === 0) {
+                autocompleteList.style.display = 'none';
+                return;
+            }
+
+            autocompleteList.innerHTML = top5.map(item => {
+                const name = item.display_name;
+                const type = item.type;
+                
+                if (item.lat) {
+                    return `
+                        <div class="suggestion-item" onclick="selectSuggestion(${item.lat}, ${item.lon}, '${name.replace(/'/g, "\\'")}', '${type}')">
+                            <strong>${name}</strong><br>
+                            <small style="font-size: 0.75rem; opacity: 0.7;">${type}</small>
+                        </div>
+                    `;
+                } else {
+                    // Predefined location - will need to search on click
+                    return `
+                        <div class="suggestion-item" onclick="searchPredefined('${name.replace(/'/g, "\\'")}')">
+                            <strong>${name}</strong><br>
+                            <small style="font-size: 0.75rem; opacity: 0.7;">City Locality</small>
+                        </div>
+                    `;
+                }
+            }).join('');
+            autocompleteList.style.display = 'block';
+        } catch(e) { console.error("Autocomplete failed"); }
+    });
+
+    async function searchPredefined(name) {
+        searchInput.value = name;
+        autocompleteList.style.display = 'none';
+        await searchLocation();
+    }
+
+    function selectSuggestion(lat, lon, name, type) {
+        setPoint(lat, lon, name, type);
+        autocompleteList.style.display = 'none';
+        runAnalysis();
+    }
+
+    window.onclick = e => { if (e.target !== searchInput) autocompleteList.style.display = 'none'; };
+
+    window.onload = () => {
+        setTimeout(() => {
+            document.getElementById('loader').style.opacity = '0';
+            setTimeout(() => document.getElementById('loader').style.display = 'none', 500);
+            loadDashboard();
+        }, 1000);
+    };
+
+    map.on('click', async e => { 
+        // Reverse geocode to get area name and type
+        try {
+            const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${e.latlng.lat}&lon=${e.latlng.lng}`);
+            const data = await resp.json();
+            const parts = data.display_name.split(',');
+            const shortName = parts.slice(0, 2).join(',').trim();
+            const type = data.type || data.addresstype;
+            setPoint(e.latlng.lat, e.latlng.lng, shortName, type); 
+            runAnalysis(); 
+        } catch(err) {
+            setPoint(e.latlng.lat, e.latlng.lng, "Selected Point", "road"); 
+            runAnalysis();
+        }
+    });
+
+    async function searchLocation() {
+        const q = searchInput.value;
+        if (!q) return;
+        try {
+            const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=in&limit=1`);
+            const data = await resp.json();
+            if (data.length > 0) {
+                const item = data[0];
+                const parts = item.display_name.split(',');
+                const shortName = parts.slice(0, 2).join(',').trim();
+                const type = item.type || item.addresstype;
+                setPoint(parseFloat(item.lat), parseFloat(item.lon), shortName, type);
+                runAnalysis();
+            }
+        } catch(e) { console.error("Search failed"); }
+    }
+
+    function setPoint(lat, lon, name, type = "road") {
+        currentLat = lat; currentLon = lon; currentArea = name; currentType = type;
+        marker.setLatLng([lat, lon]);
+        map.flyTo([lat, lon], 14, { animate: true, duration: 1.5 });
+        searchInput.value = name;
+    }
+
+    async function runAnalysis() {
+        document.getElementById('startLabel').style.display = 'none';
+        document.getElementById('resultsContent').style.display = 'block';
+        const payload = { area: currentArea, lat: currentLat, lon: currentLon, type: currentType, hour: new Date().getHours() };
+
+        try {
+            const resp = await fetch('/predict', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await resp.json();
+
+            if (data.error || data.traffic === "Not Applicable") {
+                document.getElementById('resArea').innerText = "Location Info";
+                document.getElementById('resVolume').innerText = "--";
+                document.getElementById('resExplain').innerText = data.message || data.error;
+                document.getElementById('levelBadge').innerText = data.traffic || data.status || "INFO";
+                document.getElementById('levelBadge').className = 'badge badge-Yellow';
+                document.getElementById('xaiCard').style.display = 'none';
+                document.getElementById('whatIfCard').style.display = 'none';
+                
+                // Voice feedback for error
+                window.speechSynthesis.cancel();
+                window.speechSynthesis.speak(new SpeechSynthesisUtterance(data.message || data.error));
+                return;
+            }
+
+            document.getElementById('levelBadge').innerText = data.congestion_level;
+            document.getElementById('levelBadge').className = 'badge badge-' + data.color;
+            document.getElementById('resArea').innerText = data.area.split(',')[0];
+            document.getElementById('resVolume').innerText = data.traffic_volume.toLocaleString();
+            document.getElementById('resExplain').innerText = data.explanation;
+
+            document.getElementById('confVal').innerText = data.confidence + '%';
+            document.getElementById('confFill').style.width = data.confidence + '%';
+            
+            document.getElementById('riskVal').innerText = data.risk + ' Probability';
+            const riskColor = data.risk === 'High' ? 'var(--red)' : (data.risk === 'Medium' ? 'var(--yellow)' : 'var(--green)');
+            document.getElementById('riskVal').style.color = riskColor;
+            document.getElementById('riskCard').style.borderColor = riskColor.replace('var(', 'rgba(').replace(')', ', 0.3)');
+
+            const fList = document.getElementById('factorList');
+            fList.innerHTML = data.factors.map(f => `<div class="insight-item"><i>•</i> ${f}</div>`).join('');
+            document.getElementById('xaiCard').style.display = 'block';
+
+            document.getElementById('currVolLabel').innerText = data.traffic_volume;
+            document.getElementById('futureTimeLabel').innerText = data.what_if.new_time;
+            document.getElementById('futureVolLabel').innerText = data.what_if.traffic;
+            
+            const diff = data.what_if.change_percent;
+            const savingsMsg = document.getElementById('savingsMsg');
+            savingsMsg.innerText = diff < 0 ? `💡 Traffic drops by ${Math.abs(diff)}% in 2 hours` : `⚠️ Traffic increases by ${diff}% in 2 hours`;
+            savingsMsg.style.color = diff < 0 ? 'var(--green)' : 'var(--red)';
+            document.getElementById('whatIfCard').style.display = 'block';
+
+            speakResult();
+        } catch(e) { console.error("Analysis failed"); }
+    }
+
+    function speakResult() {
+        const area = document.getElementById('resArea').innerText;
+        const level = document.getElementById('levelBadge').innerText;
+        const msg = `Traffic in ${area} is ${level}. Confidence level is ${document.getElementById('confVal').innerText}.`;
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(msg);
+        utterance.rate = 0.95;
+        window.speechSynthesis.speak(utterance);
+    }
+
+    async function loadDashboard() {
+        const resp = await fetch('/analytics');
+        const data = await resp.json();
+        const chartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+            scales: { y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } }, x: { grid: { display: false }, ticks: { color: '#94a3b8' } } }
+        };
+        new Chart(document.getElementById('timeChart'), {
+            type: 'line', data: { labels: data.labels_hour, datasets: [{ data: data.hourly_data, borderColor: '#4f46e5', backgroundColor: 'rgba(79, 70, 229, 0.1)', fill: true, tension: 0.4 }] },
+            options: chartOptions
+        });
+        new Chart(document.getElementById('statChart'), {
+            type: 'doughnut', data: { labels: data.dist_labels, datasets: [{ data: data.congestion_distribution, backgroundColor: ['#10b981', '#f59e0b', '#ef4444'], borderWidth: 0 }] },
+            options: { ...chartOptions, cutout: '70%' }
+        });
+    }
+</script>
+</body>
+</html>

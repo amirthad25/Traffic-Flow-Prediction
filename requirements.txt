@@ -1,0 +1,10 @@
+# Basic dependencies for Traffic Flow Prediction project
+
+pandas>=2.0.0
+numpy>=1.24.0
+flask>=3.0.0
+scikit-learn>=1.2.0
+
+# Add deep learning framework dependency below (e.g., PyTorch or TensorFlow)
+# tensorflow>=2.14.0
+# torch>=2.1.0

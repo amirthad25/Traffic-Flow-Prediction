@@ -1,4 +1,5 @@
 from flask import Flask, jsonify, request, render_template
+from flask_cors import CORS
 import os
 import joblib
 import numpy as np
@@ -6,18 +7,22 @@ import pandas as pd
 from datetime import datetime
 
 app = Flask(__name__, template_folder="templates")
+CORS(app)
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MODEL_FEATURES = ["hour", "weekday", "month", "latitude", "longitude"]
 
 # Global variable for model
 MODEL = None
 
 def load_model():
     global MODEL
-    model_path = os.path.join("model", "model.joblib")
+    model_path = os.path.join(BASE_DIR, "model", "model.joblib")
     if os.path.exists(model_path):
         MODEL = joblib.load(model_path)
-        print("Model loaded successfully from joblib.")
+        print(f"Model loaded successfully from {model_path}.")
     else:
-        print("Model file not found. Prediction will use fallback logic.")
+        print(f"Model file not found at {model_path}. Prediction will use fallback logic.")
 
 @app.route("/", methods=["GET"])
 def index():
@@ -30,7 +35,7 @@ def predict():
         area = data.get('area', 'Selected Location')
         lat = float(data.get('lat', 13.0827))
         lon = float(data.get('lon', 80.2707))
-        location_type = data.get('type', '').lower()
+        location_type = str(data.get('type') or '').lower()
 
         # --- Part 3: Fix Lake / Non-Road Issue ---
         water_types = ['water', 'lake', 'river', 'reservoir', 'basin', 'canal', 'nature_reserve', 'forest']
@@ -50,8 +55,11 @@ def predict():
 
         # --- Base Prediction ---
         if MODEL:
-            # Prepare features for model
-            features = np.array([[hour, weekday, month, lat, lon]])
+            # Prepare features for model using the training column names
+            features = pd.DataFrame(
+                [[hour, weekday, month, lat, lon]],
+                columns=MODEL_FEATURES,
+            )
             raw_prediction = MODEL.predict(features)
             base_volume = float(raw_prediction[0])
             
@@ -140,6 +148,7 @@ def predict():
         return jsonify({
             "area": area,
             "traffic_volume": traffic_volume,
+            "predicted_traffic_volume": traffic_volume,
             "congestion_level": level,
             "color": color,
             "explanation": explanation,

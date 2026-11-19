@@ -277,15 +277,15 @@
     let marker = L.marker([13.0827, 80.2707]).addTo(map);
 
     const themes = {
-        dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-        light: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        terrain: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'
+        dark: { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', attribution: 'Tiles &copy; Esri', maxNativeZoom: 16 },
+        light: { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '&copy; OpenStreetMap contributors', maxNativeZoom: 19 },
+        terrain: { url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', attribution: '&copy; OpenStreetMap contributors, SRTM | &copy; OpenTopoMap (CC-BY-SA)', maxNativeZoom: 17 }
     };
-    let currentLayer = L.tileLayer(themes.dark, { attribution: '&copy; OpenStreetMap' }).addTo(map);
+    let currentLayer = L.tileLayer(themes.dark.url, { attribution: themes.dark.attribution, maxNativeZoom: themes.dark.maxNativeZoom }).addTo(map);
 
     function setMapTheme(theme) {
         map.removeLayer(currentLayer);
-        currentLayer = L.tileLayer(themes[theme], { attribution: '&copy; OpenStreetMap' }).addTo(map);
+        currentLayer = L.tileLayer(themes[theme].url, { attribution: themes[theme].attribution, maxNativeZoom: themes[theme].maxNativeZoom }).addTo(map);
     }
 
     // Autocomplete Logic
